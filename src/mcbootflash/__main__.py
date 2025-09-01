@@ -11,6 +11,7 @@ import time
 from io import StringIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, TextIO
+import can
 
 import bincopy  # type: ignore[import-untyped]
 from serial import Serial, SerialException  # type: ignore[import-untyped]
@@ -258,7 +259,7 @@ def write_error_log(debug_stream: StringIO | TextIO) -> None:
 ############
 
 
-def connect(port: str, baudrate: int, timeout: float) -> Serial:
+def connect(port: str, baudrate: int, timeout: float) -> can.bus.BusABC:
     """Try to open serial port.
 
     Parameters
@@ -277,10 +278,10 @@ def connect(port: str, baudrate: int, timeout: float) -> Serial:
         Open serial connection.
     """
     try:
-        connection = Serial(
-            port=port,
-            baudrate=baudrate,
-            timeout=timeout,
+        connection = can.Bus(
+            interface="socketcan",
+            channel=port,
+            bitrate=baudrate
         )
         connection.reset_input_buffer()
     except SerialException as exc:
@@ -289,7 +290,7 @@ def connect(port: str, baudrate: int, timeout: float) -> Serial:
     return connection
 
 
-def handshake(connection: Serial) -> BootAttrs:
+def handshake(connection: can.bus.BusABC) -> BootAttrs:
     """Make sure we're actually talking to an MCC bootloader."""
     try:
         try:
@@ -332,7 +333,7 @@ def parse_hex(hex_file: str, boot_attr: BootAttrs) -> tuple[int, Iterator[Chunk]
         raise HandledException("Error: " + str(exc)) from exc
 
 
-def erase(connection: Serial, erase_range: tuple[int, int], erase_size: int) -> None:
+def erase(connection: can.bus.BusABC, erase_range: tuple[int, int], erase_size: int) -> None:
     """Erase flash pages one at a time.
 
     Parameters
@@ -380,7 +381,7 @@ def erase(connection: Serial, erase_range: tuple[int, int], erase_size: int) -> 
 
 
 def flash(
-    connection: Serial,
+    connection: can.bus.BusABC,
     chunks: Iterator[Chunk],
     total_bytes: int,
     *,
