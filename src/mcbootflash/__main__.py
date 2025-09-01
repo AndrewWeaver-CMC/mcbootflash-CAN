@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Final, TextIO
 import bincopy  # type: ignore[import-untyped]
 from serial import Serial, SerialException  # type: ignore[import-untyped]
 
+import canprotocol as CAN
+
 from mcbootflash import (
     BadAddress,
     BootAttrs,
