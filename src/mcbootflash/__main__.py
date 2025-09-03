@@ -259,7 +259,7 @@ def write_error_log(debug_stream: StringIO | TextIO) -> None:
 ############
 
 
-def connect(port: str, baudrate: int, timeout: float) -> can.bus.BusABC:
+def connect(port: str, baudrate: int, timeout: float) -> CAN.Connection:
     """Try to open serial port.
 
     Parameters
@@ -278,19 +278,21 @@ def connect(port: str, baudrate: int, timeout: float) -> can.bus.BusABC:
         Open serial connection.
     """
     try:
-        connection = can.Bus(
-            interface="socketcan",
-            channel=port,
-            bitrate=baudrate
+        connection = CAN.Connection(
+            can.Bus(
+                interface="socketcan",
+                channel=port,
+                bitrate=baudrate
+            )
         )
-        connection.reset_input_buffer()
+        connection.bus.flush_tx_buffer()
     except SerialException as exc:
         raise HandledException("Error: " + str(exc)) from exc
 
     return connection
 
 
-def handshake(connection: can.bus.BusABC) -> BootAttrs:
+def handshake(connection: CAN.Connection) -> BootAttrs:
     """Make sure we're actually talking to an MCC bootloader."""
     try:
         try:
@@ -333,7 +335,7 @@ def parse_hex(hex_file: str, boot_attr: BootAttrs) -> tuple[int, Iterator[Chunk]
         raise HandledException("Error: " + str(exc)) from exc
 
 
-def erase(connection: can.bus.BusABC, erase_range: tuple[int, int], erase_size: int) -> None:
+def erase(connection: CAN.Connection, erase_range: tuple[int, int], erase_size: int) -> None:
     """Erase flash pages one at a time.
 
     Parameters
@@ -381,7 +383,7 @@ def erase(connection: can.bus.BusABC, erase_range: tuple[int, int], erase_size: 
 
 
 def flash(
-    connection: can.bus.BusABC,
+    connection: CAN.Connection,
     chunks: Iterator[Chunk],
     total_bytes: int,
     *,

@@ -1,5 +1,10 @@
 import can
 
-with can.Bus(interface="socketcan", channel="can0", bitrate=500000) as bus:
+class Connection:
+  def __init__(self, bus: can.BusABC):
+    self.bus = bus
   
-  0
+  def timeout(self):
+    pass
+    
+  

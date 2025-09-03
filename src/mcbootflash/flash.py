@@ -2,6 +2,7 @@
 
 import logging
 import sys
+import canprotocol as CAN
 
 if sys.version_info >= (3, 12):
     from itertools import batched
@@ -204,7 +205,7 @@ def erase_flash(
     )
 
 
-def write_flash(connection: Connection, chunk: Chunk) -> None:
+def write_flash(connection: CAN.Connection, chunk: Chunk) -> None:
     """Write data to bootloader.
 
     Parameters
@@ -227,7 +228,7 @@ def write_flash(connection: Connection, chunk: Chunk) -> None:
     )
 
 
-def self_verify(connection: Connection) -> None:
+def self_verify(connection: CAN.Connection) -> None:
     """Run bootloader self-verification.
 
     Parameters
@@ -343,7 +344,7 @@ def read_flash(connection: Connection, address: int, size: int) -> bytes:
     return connection.read(read_flash_response.data_length)
 
 
-def _get_response(connection: Connection, in_response_to: Command) -> ResponseBase:
+def _get_response(connection: CAN.Connection, in_response_to: Command) -> ResponseBase:
     """Get a Response packet.
 
     Parameters
@@ -361,7 +362,8 @@ def _get_response(connection: Connection, in_response_to: Command) -> ResponseBa
     # Can't read the whole response in one go. Its length depends on whether it's an
     # error or not. Start by reading the command echo to determine the response
     # type.
-    response = ResponseBase.unpack(connection.read(ResponseBase.size))
+    # response = ResponseBase.unpack(connection.read(ResponseBase.size))
+    response = ResponseBase.unpack(connection.bus.recv())
     _logger.debug(f"RX: {_format_debug_bytes(bytes(response))}")
 
     if response.command != in_response_to.command:
@@ -382,11 +384,11 @@ def _get_response(connection: Connection, in_response_to: Command) -> ResponseBa
 
     # READ_VERSION has no 'success' flag.
     if response_type is Version:
-        remainder = connection.read(response_type.size - response.size)
+        remainder = connection.bus.recv()
         _logger.debug(f"RX: {_format_debug_bytes(remainder, bytes(response))}")
         return response_type.unpack(response.pack() + remainder)
 
-    success = connection.read(1)
+    success = connection.bus.recv()
     _logger.debug(f"RX: {_format_debug_bytes(success, bytes(response))}")
 
     if success[0] != ResponseCode.SUCCESS:
@@ -399,7 +401,7 @@ def _get_response(connection: Connection, in_response_to: Command) -> ResponseBa
         raise bootloader_exceptions[ResponseCode(success[0])]
 
     response = Response.unpack(response.pack() + success)
-    remainder = connection.read(response_type.size - response.size)
+    remainder = connection.bus.recv()
 
     if remainder:
         _logger.debug(f"RX: {_format_debug_bytes(remainder, bytes(response))}")
@@ -408,14 +410,14 @@ def _get_response(connection: Connection, in_response_to: Command) -> ResponseBa
 
 
 def _exchange(
-    connection: Connection,
+    connection: CAN.Connection,
     command: Command,
     data: bytes = b"",
 ) -> ResponseBase:
     msg = f"TX: {_format_debug_bytes(command.pack())}"
     msg += f" plus {len(data)} data bytes" if data else ""
     _logger.debug(msg)
-    connection.write(command.pack() + data)
+    connection.bus.send(command.pack() + data)
     return _get_response(connection, command)
 
 
